@@ -16,7 +16,7 @@ class SingleEntity( QtGui.QApplication):
         else:
             self.is_running = False
             if not self.my_mem.create( 1):
-                raise RuntimeError( 'SingleApplication.__init__: can't create memory')
+                raise RuntimeError( 'SingleApplication.__init__: can\'t create memory')
 
     def isRunning(self):
         return self._running
