@@ -163,3 +163,6 @@ else:
     print 'Error: cannot open file %s for ouput' % release_notes_in_name
     sys.exit(1)
 
+# -------------- ZIP 
+os.system( 'zip -r %s.zip %s' % ( os.path.abspath( distr_dir), os.path.abspath( distr_dir)))
+
