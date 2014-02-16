@@ -5,10 +5,11 @@ import py_compile # for build
 import shutil # for files copy
 import datetime # for date stamp on release dir
 
-release_notes_in_name = 'release_notes.xml' 
-release_notes_out_name = 'release_notes.txt' 
-release_list_name = 'release.list' 
-releases_directory = 'releases' 
+release_notes_in_name = 'release_notes.xml'
+release_notes_out_name = 'release_notes.txt'
+release_list_name = 'release.list'
+releases_directory = 'releases'
+vstype_name = '../VSType.py'
 
 # -------------- script routines
 
@@ -58,8 +59,10 @@ if len(sys.argv) >= 3:
 # check if releases directory available
 releases_directory = os.path.abspath(releases_directory)
 if not os.path.isdir(releases_directory):
-    print 'Error: directory does not exist %s' % releases_directory
-    sys.exit(1)
+    os.makedirs( releases_directory)
+    if not os.path.isdir( releases_directory):
+        print( 'Error: can\'t create directory for releases %s' % releases_directory)
+        sys.exit( 1)
 
 # -------------- script itself
 
@@ -97,8 +100,22 @@ else:
     print 'Error: cannot open file %s for ouput' % release_notes_out_name
     sys.exit(1)
 
+# -------------- modify VSType to inject version
+orig_vstype_name = vstype_name + '.orig'
+shutil.copy( vstype_name, orig_vstype_name)
+in_file = open( orig_vstype_name, 'r')
+out_file = open( vstype_name, 'w')
+for line in in_file.readlines():
+    if re.search( r"<<version>>", line):
+        line = re.sub( r"<<version>>", version_to_inc, line)
+        print( 'version substituted')
+    out_file.write( '%s' % line)
+in_file.close()
+out_file.close()
+shutil.copy( orig_vstype_name, vstype_name)
+
 # -------------- compile steps
-py_compile.compile('../VSType.py')
+py_compile.compile( vstype_name)
 
 # -------------- create distribution directory
 now = datetime.datetime.now()
@@ -106,8 +123,10 @@ date_stamp = '%.2d%.2d%.2d' % (now.year % 100, now.month, now.day)
 distr_dir = os.path.abspath(releases_directory + '/VSType_' + \
                             date_stamp + '_' + version_to_inc)
 if os.path.exists(distr_dir):
-    print 'Error: directory already exists %s' % releases_directory
-    sys.exit(1)
+    shutil.rmtree( distr_dir)
+    if os.path.exists( distr_dir):
+        print( 'Error: can\'t release to %s' % distr_dir)
+        sys.exit( 1)
 os.makedirs(distr_dir)
 
 # -------------- copy files
