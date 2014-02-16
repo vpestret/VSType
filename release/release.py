@@ -112,10 +112,10 @@ for line in in_file.readlines():
     out_file.write( '%s' % line)
 in_file.close()
 out_file.close()
-shutil.copy( orig_vstype_name, vstype_name)
 
 # -------------- compile steps
 py_compile.compile( vstype_name)
+shutil.copy( orig_vstype_name, vstype_name)
 
 # -------------- create distribution directory
 now = datetime.datetime.now()
