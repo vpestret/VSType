@@ -19,7 +19,7 @@ class SingleEntity( QtGui.QApplication):
                 raise RuntimeError( 'SingleApplication.__init__: can\'t create memory')
 
     def isRunning(self):
-        return self._running
+        return self.is_running
 
 class svg_parser:
     def __init__(self, file_name):
