@@ -695,6 +695,7 @@ def main():
     app.connect(app, QtCore.SIGNAL('messageAvailable'),
                 view.handleMessage)
     view.setWindowIcon(QtGui.QIcon('resources/splash.png'))
+    view.setWindowTitle( 'VSType <<version>>')
     view.show()
     # bye
     sys.exit(app.exec_())
