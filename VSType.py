@@ -49,14 +49,23 @@ class bound_polygon( bound_item):
         # point 2 is assumed of type euclid.Point2
         # put point into origin to simplify code but it is not optimal
         pov_arr = []
+        rcross = 0
         for i in range( 0, len( self.arr)):
             pov_arr.append( self.arr[ i] - point2)
         # cycle over all edges
-        for i in range( -1, len( self.arr) - 1): # it is possible in python to get arr[-1] which is just last element but not a[len(a)]
+        for i in range( -1, len( pov_arr) - 1): # it is possible in python to get arr[-1] which is just last element but not a[len(a)]
             # if edge includes X axis
-            pass
+            if ( pov_arr[ i ].y > 0 and pov_arr[ i + 1 ].y <= 0 or pov_arr[ i + 1 ].y > 0 and pov_arr[ i ].y <= 0 ):
+                # find x coordiante of intersection
+                x = float( pov_arr[ i ].x * pov_arr[ i + 1 ].y - pov_arr[ i + 1 ].x * pov_arr[ i ].y) / \
+                    ( pov_arr[ i + 1 ].y - pov_arr[ i ].y)
+                if ( x > 0 ):
+                    rcross += 1
 
-        return False
+        if ( rcross % 2 == 1 ):  
+            return True
+        else:
+            return False
 
     def get_tr_arr( self):
         tr_arr = []
@@ -96,11 +105,14 @@ class bound_set:
                 is_in = True
                 break
 
-        if not is_in:
+        if ( not is_in ):
             return False
 
+        if ( None == self.neg_set ):
+            return True
+
         for item in self.neg_set:
-            if item.contains( point2):
+            if ( item.contains( point2) ):
                 return False
 
         return True
