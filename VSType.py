@@ -21,6 +21,132 @@ class SingleEntity( QtGui.QApplication):
     def isRunning(self):
         return self.is_running
 
+class bound_item:
+    def __init__( self, tr_mtx):
+        self.tr_mtx = tr_mtx
+        self.inv_mtx = tr_mtx.inverse()
+
+    def contains( self, point2):
+        tr_point = self.inv_mtx * point2
+        return self.in_check( tr_point)
+        
+    def in_check( self, point2):
+        return False
+
+class bound_circle( bound_item):
+    def __init__( self, cx, cy, rx, ry, tr_mtx):
+        bound_item.__init__( self, tr_mtx)
+
+    def in_check( self, point2):
+        return False
+
+class bound_polygon( bound_item):
+    def __init__( self, arr, tr_mtx):
+        bound_item.__init__( self, tr_mtx)
+        self.arr = arr
+
+    def in_check( self, point2):
+        # point 2 is assumed of type euclid.Point2
+        # put point into origin to simplify code but it is not optimal
+        pov_arr = []
+        for i in range( 0, len( self.arr)):
+            pov_arr.append( self.arr[ i] - point2)
+        # cycle over all edges
+        for i in range( -1, len( self.arr) - 1): # it is possible in python to get arr[-1] which is just last element but not a[len(a)]
+            # if edge includes X axis
+            pass
+
+        return False
+
+    def get_tr_arr( self):
+        tr_arr = []
+        for point in self.arr:
+            tr_arr.append( self.tr_mtx * point)
+        return tr_arr
+
+class path_w_rect( QtGui.QGraphicsPathItem):
+    def __init__( self, tr_rect):
+        QtGui.QGraphicsPathItem.__init__( self)
+        self.tr_rect = tr_rect
+
+    def rect( self):
+        return self.tr_rect
+
+    def setRect( self, tr_rect):
+        self.tr_rect = tr_rect
+
+class bound_set:
+    def __init__( self, pos_set, neg_set = None):
+        # TODO: ensure that it is with minimal perimeter
+        self.pos_set = pos_set
+        self.neg_set = neg_set
+        self.cache_rect = None
+        # form tranformed array as joint array
+        self.tr_arr = []
+        for item in self.pos_set:
+            if isinstance( item, bound_polygon):
+                self.tr_arr.extend( item.get_tr_arr())
+            else:
+                continue
+
+    def contains( self, point2):
+        is_in = False
+        for item in self.pos_set:
+            if item.contains( point2):
+                is_in = True
+                break
+
+        if not is_in:
+            return False
+
+        for item in self.neg_set:
+            if item.contains( point2):
+                return False
+
+        return True
+
+    def rect( self):
+        # caching
+        if ( None != self.cache_rect ):
+            return self.cache_rect
+        # protection
+        if ( len( self.tr_arr) <= 0 ):
+            self.cache_rect = QtCore.QRectF( 0,0,0,0)
+            return self.cache_rect
+        # initial value
+        tr_point = self.tr_arr[ 0 ]
+        min_x = tr_point.x
+        max_x = tr_point.x
+        min_y = tr_point.y
+        max_y = tr_point.y
+        # process the rest
+        for vect in self.tr_arr:
+            tr_vect = vect
+            if min_x > tr_vect.x:
+                min_x = tr_vect.x 
+            if max_x < tr_vect.x:
+                max_x = tr_vect.x 
+            if min_y > tr_vect.y:
+                min_y = tr_vect.y 
+            if max_y < tr_vect.y:
+                max_y = tr_vect.y 
+        # form the output
+        self.cache_rect = QtCore.QRectF(min_x,min_y,max_x-min_x,max_y-min_y)
+        return self.cache_rect
+
+    def get_graphics_item( self):
+        item = path_w_rect( self.rect())
+        item.setPath( self.get_path())
+        return item
+
+    def get_path( self):
+        path = QtGui.QPainterPath()
+        path.moveTo( QtCore.QPoint( self.tr_arr[0].x, self.tr_arr[0].y))
+        for idx in range( 1, len( self.tr_arr)):
+            path.lineTo( QtCore.QPoint( self.tr_arr[idx].x, self.tr_arr[idx].y))
+        path.lineTo( QtCore.QPoint( self.tr_arr[0].x, self.tr_arr[0].y))
+        return path
+
 class svg_parser:
     def __init__(self, file_name):
         self.rect_dict = {}
@@ -151,10 +277,10 @@ class svg_parser:
         (hrefs, rects) = self.parse_item(root)
         for key in hrefs.keys():
             if len(hrefs[key]) > 1:
-                self.href_dict[self.bound_points(hrefs[key])] = key
+                self.href_dict[ bound_set( [ bound_polygon( hrefs[ key], euclid.Matrix3()) ]) ] = key
         for key in rects.keys():
             if len(rects[key]) > 1:
-                self.rect_dict[self.bound_points(rects[key])] = key
+                self.rect_dict[ bound_set( [ bound_polygon( rects[ key], euclid.Matrix3()) ]) ] = key
 
     def parse_item(self, item):
         hrefs = dict()
@@ -199,30 +325,6 @@ class svg_parser:
                     rects[key] = loc_rects[key]
         # transform and return
         return self.transform_dicts(tr_mtx, hrefs, rects)
-
-    def bound_points(self, arr):
-        # protection
-        if (len(arr) <=0):
-            return QtCore.QRect(0,0,0,0)
-        # initial value
-        tr_point = arr[0]
-        min_x = tr_point.x
-        max_x = tr_point.x
-        min_y = tr_point.y
-        max_y = tr_point.y
-        # process the rest
-        for vect in arr:
-            tr_vect = vect
-            if min_x > tr_vect.x:
-                min_x = tr_vect.x 
-            if max_x < tr_vect.x:
-                max_x = tr_vect.x 
-            if min_y > tr_vect.y:
-                min_y = tr_vect.y 
-            if max_y < tr_vect.y:
-                max_y = tr_vect.y 
-        # form the output
-        return QtCore.QRect(min_x,min_y,max_x-min_x,max_y-min_y)
 
     def transform_points(self, g_mtx, arr):
         # initial value
@@ -291,7 +393,7 @@ class svg_parser:
             return
         if direction == 'left':
             for rect in rects:
-                pt2 = rect.center()
+                pt2 = rect.rect().center()
                 dx = pt2.x() - pt.x()
                 dy = pt2.y() - pt.y()
                 if dx*dx + dy*dy < 10:
@@ -305,7 +407,7 @@ class svg_parser:
                         min_detected = rect
         elif direction == 'up':
             for rect in rects:
-                pt2 = rect.center()
+                pt2 = rect.rect().center()
                 dx = pt2.x() - pt.x()
                 dy = pt2.y() - pt.y()
                 if dx*dx + dy*dy < 10:
@@ -319,7 +421,7 @@ class svg_parser:
                         min_detected = rect
         elif direction == 'right':
             for rect in rects:
-                pt2 = rect.center()
+                pt2 = rect.rect().center()
                 dx = pt2.x() - pt.x()
                 dy = pt2.y() - pt.y()
                 if dx*dx + dy*dy < 10:
@@ -333,7 +435,7 @@ class svg_parser:
                         min_detected = rect
         elif direction == 'down':
             for rect in rects:
-                pt2 = rect.center()
+                pt2 = rect.rect().center()
                 dx = pt2.x() - pt.x()
                 dy = pt2.y() - pt.y()
                 if dx*dx + dy*dy < 10:
@@ -350,7 +452,7 @@ class svg_parser:
             return cur_rect
 
         if min_detected != None:
-            return QtCore.QRectF(min_detected)
+            return min_detected
         else:
             print 'nav: No rects detected to step - stand still'
             return cur_rect
@@ -401,7 +503,7 @@ class svg_scene(QtGui.QGraphicsScene):
             return
 
         self.cursor = cursor
-        self.cursor_item = QtGui.QGraphicsRectItem(QtCore.QRectF(rect))
+        self.cursor_item = rect.get_graphics_item()
         self.addItem(self.cursor_item)
         self.cursor.setItem(self.cursor_item)
 
@@ -447,7 +549,9 @@ class svg_scene(QtGui.QGraphicsScene):
 
         if intercepted:
             self.cursor.tl.stop()
-            self.cursor_item.setRect(new_rect)
+            if ( new_rect != cur_rect ):
+                self.cursor_item.setPath( new_rect.get_path())
+                self.cursor_item.setRect( new_rect.rect())
             self.cursor.setItem(self.cursor_item)
             self.cursor.tl.start()
 
@@ -462,7 +566,7 @@ class svg_item(QtSvg.QGraphicsSvgItem):
         event.accept()
 
     def mouseHit(self, hit_point):
-        ret = self.parser.click(QtCore.QPoint(hit_point.x(), hit_point.y()))
+        ret = self.parser.click( euclid.Point2(hit_point.x(), hit_point.y()))
         if ret:
             (ret_str, ret_type) = ret
             if ret_type == 'rect':
@@ -559,10 +663,10 @@ class app_view(QtGui.QGraphicsView):
         # File load dialog
         self.file_open_dlg = QtGui.QFileDialog()
         # Ctrl+z and Ctrl+y bypass
-        shortcut = QtGui.QShortcut(QtGui.QKeySequence('Ctrl+Z'), self);
+        shortcut = QtGui.QShortcut(QtGui.QKeySequence('Ctrl+Z'), self)
         self.connect(shortcut, QtCore.SIGNAL('activated()'), \
             self.ctrl_z_callback)
-        shortcut = QtGui.QShortcut(QtGui.QKeySequence('Ctrl+Y'), self);
+        shortcut = QtGui.QShortcut(QtGui.QKeySequence('Ctrl+Y'), self)
         self.connect(shortcut, QtCore.SIGNAL('activated()'), \
             self.ctrl_y_callback)
 
