@@ -56,31 +56,23 @@ class SingleEntity( QtGui.QApplication):
     def isRunning(self):
         return self.is_running
 
-class bound_item:
-    def __init__( self, tr_mtx):
-        self.tr_mtx = tr_mtx
-        self.inv_mtx = tr_mtx.inverse()
+class path_w_rect( QtGui.QGraphicsPathItem):
+    def __init__( self, tr_rect):
+        QtGui.QGraphicsPathItem.__init__( self)
+        self.tr_rect = tr_rect
+
+    def rect( self):
+        return self.tr_rect
+
+    def setRect( self, tr_rect):
+        self.tr_rect = tr_rect
+
+class bound_polygon():
+    def __init__( self, arr):
+        self.arr = arr
+        self.cache_rect = None
 
     def contains( self, point2):
-        tr_point = self.inv_mtx * point2
-        return self.in_check( tr_point)
-        
-    def in_check( self, point2):
-        return False
-
-class bound_circle( bound_item):
-    def __init__( self, cx, cy, rx, ry, tr_mtx):
-        bound_item.__init__( self, tr_mtx)
-
-    def in_check( self, point2):
-        return False
-
-class bound_polygon( bound_item):
-    def __init__( self, arr, tr_mtx):
-        bound_item.__init__( self, tr_mtx)
-        self.arr = arr
-
-    def in_check( self, point2):
         # point 2 is assumed of type euclid.Point2
         # put point into origin to simplify code but it is not optimal
         pov_arr = []
@@ -102,72 +94,22 @@ class bound_polygon( bound_item):
         else:
             return False
 
-    def get_tr_arr( self):
-        tr_arr = []
-        for point in self.arr:
-            tr_arr.append( self.tr_mtx * point)
-        return tr_arr
-
-class path_w_rect( QtGui.QGraphicsPathItem):
-    def __init__( self, tr_rect):
-        QtGui.QGraphicsPathItem.__init__( self)
-        self.tr_rect = tr_rect
-
-    def rect( self):
-        return self.tr_rect
-
-    def setRect( self, tr_rect):
-        self.tr_rect = tr_rect
-
-class bound_set:
-    def __init__( self, pos_set, neg_set = None):
-        # TODO: ensure that it is with minimal perimeter
-        self.pos_set = pos_set
-        self.neg_set = neg_set
-        self.cache_rect = None
-        # form tranformed array as joint array
-        self.tr_arr = []
-        for item in self.pos_set:
-            if isinstance( item, bound_polygon):
-                self.tr_arr.extend( item.get_tr_arr())
-            else:
-                continue
-
-    def contains( self, point2):
-        is_in = False
-        for item in self.pos_set:
-            if item.contains( point2):
-                is_in = True
-                break
-
-        if ( not is_in ):
-            return False
-
-        if ( None == self.neg_set ):
-            return True
-
-        for item in self.neg_set:
-            if ( item.contains( point2) ):
-                return False
-
-        return True
-
     def rect( self):
         # caching
         if ( None != self.cache_rect ):
             return self.cache_rect
         # protection
-        if ( len( self.tr_arr) <= 0 ):
+        if ( len( self.arr) <= 0 ):
             self.cache_rect = QtCore.QRectF( 0,0,0,0)
             return self.cache_rect
         # initial value
-        tr_point = self.tr_arr[ 0 ]
+        tr_point = self.arr[ 0 ]
         min_x = tr_point.x
         max_x = tr_point.x
         min_y = tr_point.y
         max_y = tr_point.y
         # process the rest
-        for vect in self.tr_arr:
+        for vect in self.arr:
             tr_vect = vect
             if min_x > tr_vect.x:
                 min_x = tr_vect.x 
@@ -188,10 +130,10 @@ class bound_set:
 
     def get_path( self):
         path = QtGui.QPainterPath()
-        path.moveTo( QtCore.QPoint( self.tr_arr[0].x, self.tr_arr[0].y))
-        for idx in range( 1, len( self.tr_arr)):
-            path.lineTo( QtCore.QPoint( self.tr_arr[idx].x, self.tr_arr[idx].y))
-        path.lineTo( QtCore.QPoint( self.tr_arr[0].x, self.tr_arr[0].y))
+        path.moveTo( QtCore.QPoint( self.arr[0].x, self.arr[0].y))
+        for idx in range( 1, len( self.arr)):
+            path.lineTo( QtCore.QPoint( self.arr[idx].x, self.arr[idx].y))
+        path.lineTo( QtCore.QPoint( self.arr[0].x, self.arr[0].y))
         return path
 
 class svg_parser:
@@ -324,10 +266,10 @@ class svg_parser:
         (hrefs, rects) = self.parse_item(root)
         for key in hrefs.keys():
             if len(hrefs[key]) > 1:
-                self.href_dict[ bound_set( [ bound_polygon( hrefs[ key], euclid.Matrix3()) ]) ] = key
+                self.href_dict[ bound_polygon( hrefs[ key]) ] = key
         for key in rects.keys():
             if len(rects[key]) > 1:
-                self.rect_dict[ bound_set( [ bound_polygon( rects[ key], euclid.Matrix3()) ]) ] = key
+                self.rect_dict[ bound_polygon( rects[ key]) ] = key
 
     def parse_item(self, item):
         hrefs = dict()
