@@ -7,39 +7,44 @@ import math
 import svg.path
 import euclid
 
-class CurvCubicBezier( svg.path.CubicBezier):
-    def curvature( self, pos):
-        x_d = 3 * (     (1-pos) ** 2 *  ( self.control1 - self.start).x + \
-                    2 * (1-pos) * pos * ( self.control2 - self.control1).x + \
-                        pos ** 2 *      ( self.end - self.control2).x)
-        y_d = 3 * (     (1-pos) ** 2 *  ( self.control1 - self.start).y + \
-                    2 * (1-pos) * pos * ( self.control2 - self.control1).y + \
-                        pos ** 2 *      ( self.end - self.control2).y)
-        x_dd = 6 * ( (1-pos) * ( self.start - 2 * self.control1 + self.control2).x + \
-                      pos    * ( self.end - 2 * self.control2 + self.control1).x)
-        y_dd = 6 * ( (1-pos) * ( self.start - 2 * self.control1 + self.control2).y + \
-                      pos    * ( self.end - 2 * self.control2 + self.control1).y)
-        curvature = abs( x_d * y_dd - y_d * x_dd) / math.sqrt( ( x_d * x_d + y_d * y_d) ** 3)
-        return curvature
+def curvature( curve, pos):
+    x_d = 3 * (     (1-pos) ** 2 *  ( curve.control1 - curve.start).real + \
+                2 * (1-pos) * pos * ( curve.control2 - curve.control1).real + \
+                    pos ** 2 *      ( curve.end - curve.control2).real)
+    y_d = 3 * (     (1-pos) ** 2 *  ( curve.control1 - curve.start).imag + \
+                2 * (1-pos) * pos * ( curve.control2 - curve.control1).imag + \
+                    pos ** 2 *      ( curve.end - curve.control2).imag)
+    x_dd = 6 * ( (1-pos) * ( curve.start - 2 * curve.control1 + curve.control2).real + \
+                  pos    * ( curve.end - 2 * curve.control2 + curve.control1).real)
+    y_dd = 6 * ( (1-pos) * ( curve.start - 2 * curve.control1 + curve.control2).imag + \
+                  pos    * ( curve.end - 2 * curve.control2 + curve.control1).imag)
+    curvature = abs( x_d * y_dd - y_d * x_dd) / math.sqrt( ( x_d * x_d + y_d * y_d) ** 3)
+    return curvature
 
-    def cover_with_points( self, curv_thr):
-        poss = []
-        if ( self.curvature( 0.5) > curv_thr ):
-            poss.extend( self.cover_with_poss( 0.0, 0.5, curv_thr))
-            poss.extend( self.cover_with_poss( 0.5, 0.1, curv_thr))
-        # convert poss to points
-        points = []
-        for pos in poss:
-            point = self.point( pos)
-            points.append( euclid.Point2( point.x, point.y))
-        return points
+def cover_with_points( curve, curv_thr):
+    poss = []
+    curv = curvature( curve, 0.5)
+    if ( curv > curv_thr ):
+        poss.extend( cover_with_poss( curve, 0.0, 0.5, curv_thr))
+        poss.extend( cover_with_poss( curve, 0.5, 0.1, curv_thr))
+    else:
+        poss.append( 0.5)
+    # convert poss to points
+    points = []
+    for pos in poss:
+        point = curve.point( pos)
+        points.append( euclid.Point2( point.real, point.imag))
+    return points
 
-    def cover_with_poss( self, start, end, curv_thr):
-        poss = []
-        if ( self.curvature( (end - start)/2) > curv_thr ):
-            poss.extend( self.cover_with_poss( start, (end - start)/2, curv_thr))
-            poss.extend( self.cover_with_poss( (end - start)/2, end, curv_thr))
-        return poss
+def cover_with_poss( curve, start, end, curv_thr):
+    poss = []
+    curv = curvature( curve, ( end + start) / 2) * ( end - start)
+    if ( curv > curv_thr ):
+        poss.extend( cover_with_poss( curve, start, ( end + start) / 2, curv_thr))
+        poss.extend( cover_with_poss( curve, ( end + start) / 2, end, curv_thr))
+    else:
+        poss.append( ( end + start) / 2)
+    return poss
 
 class SingleEntity( QtGui.QApplication):
     def __init__( self, argv, id):
@@ -353,7 +358,25 @@ class svg_parser:
         return vect2tr
 
     def get_path_points(self, item):
-        return [] # not yet implemented
+        d_str = item.attrib['d']
+        svg_path = svg.path.parse_path( d_str)
+        vect2str = []
+        for idx in range( 0, len( svg_path)):
+            path_item = svg_path[ idx ]
+            if isinstance( path_item, svg.path.Line):
+                if ( 0 == idx ):
+                   vect2str.append( euclid.Point2( path_item.start.real, path_item.start.imag))
+                vect2str.append( euclid.Point2( path_item.end.real, path_item.end.imag))
+            elif isinstance( path_item, svg.path.CubicBezier):
+                if ( 0 == idx ):
+                   vect2str.append( euclid.Point2( path_item.start.real, path_item.start.imag))
+                points = cover_with_points( path_item, 0.001)
+                vect2str.extend( points)
+                vect2str.append(  euclid.Point2( path_item.start.real, path_item.start.imag))
+            else:
+                print( 'unknown type %s' % type( path_item))
+        print vect2str
+        return vect2str
 
     def click(self, hit_point):
         # Rectangles under references
