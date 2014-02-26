@@ -7,6 +7,9 @@ import math
 import svg.path
 import euclid
 
+min_itlv_threshold = 1.0/16 
+curvature_threshold = 0.005
+
 def curvature( curve, pos):
     x_d = 3 * (     (1-pos) ** 2 *  ( curve.control1 - curve.start).real + \
                 2 * (1-pos) * pos * ( curve.control2 - curve.control1).real + \
@@ -26,7 +29,7 @@ def cover_with_points( curve, curv_thr):
     curv = curvature( curve, 0.5)
     if ( curv > curv_thr ):
         poss.extend( cover_with_poss( curve, 0.0, 0.5, curv_thr))
-        poss.extend( cover_with_poss( curve, 0.5, 0.1, curv_thr))
+        poss.extend( cover_with_poss( curve, 0.5, 1.0, curv_thr))
     else:
         poss.append( 0.5)
     # convert poss to points
@@ -39,7 +42,7 @@ def cover_with_points( curve, curv_thr):
 def cover_with_poss( curve, start, end, curv_thr):
     poss = []
     curv = curvature( curve, ( end + start) / 2) * ( end - start)
-    if ( curv > curv_thr ):
+    if ( curv > curv_thr and ( end - start) > min_itlv_threshold ):
         poss.extend( cover_with_poss( curve, start, ( end + start) / 2, curv_thr))
         poss.extend( cover_with_poss( curve, ( end + start) / 2, end, curv_thr))
     else:
@@ -364,7 +367,6 @@ class svg_parser:
         after_last_idx = len( svg_path) - 2
         for idx in range( 0, after_last_idx + 1):
             path_item = svg_path[ idx ]
-            print path_item
             if isinstance( path_item, svg.path.Line):
                 if ( 0 == idx ):
                    vect2str.append( euclid.Point2( path_item.start.real, path_item.start.imag))
@@ -374,13 +376,12 @@ class svg_parser:
                 if ( 0 == idx ):
                    vect2str.append( euclid.Point2( path_item.start.real, path_item.start.imag))
                 points = []
-                points = cover_with_points( path_item, 0.002)
+                points = cover_with_points( path_item, curvature_threshold)
                 vect2str.extend( points)
                 if ( after_last_idx != idx ):
                     vect2str.append(  euclid.Point2( path_item.end.real, path_item.end.imag))
             else:
                 print( 'unknown type %s' % type( path_item))
-        print vect2str
         return vect2str
 
     def click(self, hit_point):
