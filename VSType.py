@@ -361,18 +361,23 @@ class svg_parser:
         d_str = item.attrib['d']
         svg_path = svg.path.parse_path( d_str)
         vect2str = []
-        for idx in range( 0, len( svg_path)):
+        after_last_idx = len( svg_path) - 2
+        for idx in range( 0, after_last_idx + 1):
             path_item = svg_path[ idx ]
+            print path_item
             if isinstance( path_item, svg.path.Line):
                 if ( 0 == idx ):
                    vect2str.append( euclid.Point2( path_item.start.real, path_item.start.imag))
-                vect2str.append( euclid.Point2( path_item.end.real, path_item.end.imag))
+                if ( after_last_idx != idx ):
+                    vect2str.append( euclid.Point2( path_item.end.real, path_item.end.imag))
             elif isinstance( path_item, svg.path.CubicBezier):
                 if ( 0 == idx ):
                    vect2str.append( euclid.Point2( path_item.start.real, path_item.start.imag))
-                points = cover_with_points( path_item, 0.001)
+                points = []
+                points = cover_with_points( path_item, 0.002)
                 vect2str.extend( points)
-                vect2str.append(  euclid.Point2( path_item.start.real, path_item.start.imag))
+                if ( after_last_idx != idx ):
+                    vect2str.append(  euclid.Point2( path_item.end.real, path_item.end.imag))
             else:
                 print( 'unknown type %s' % type( path_item))
         print vect2str
