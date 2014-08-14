@@ -1,0 +1,8 @@
+euclid.py*
+VSType.py.*
+VSType.pyc
+release/releases
+release/release_notes.txt
+release/release_notes.xml.orig
+collection/FPGA
+collection/NN
