@@ -808,6 +808,10 @@ class app_view(QtGui.QGraphicsView):
 def main():
     key = 'vstype_unique_key'
 
+    style = QtGui.QStyleFactory.create('Windows')
+    if not style:
+      return
+    QtGui.QApplication.setStyle(style)
     app = SingleEntity(sys.argv, key)
     if app.isRunning():
         sys.exit(1)
